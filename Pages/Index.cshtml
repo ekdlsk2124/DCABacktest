@@ -1,146 +1,221 @@
-﻿@page
-@model dynamic
-@{
-    Layout = null;
-    ViewData["Title"] = "DCA 백테스트 (라오어 v1/v2/v2.1/v3 포함)";
-}
 <!doctype html>
 <html lang="ko" data-theme="auto">
 <head>
-    <meta charset="utf-8" />
-    <title>@ViewData["Title"]</title>
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <link rel="stylesheet" href="~/css/site.css" />
-
-    <!-- Lightweight Charts (전역 객체 제공) -->
-    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.min.js"></script>
-
-    <!-- 앱 로직 (ES 모듈) -->
-    <script type="module" src="~/js/app.js"></script>
+  <meta charset="utf-8" />
+  <title>DCA 백테스터 – GitHub Pages (Stooq CSV)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="./css/site.css" />
+  <!-- Lightweight Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.min.js"></script>
+  <!-- App -->
+  <script type="module" src="./js/app-gh.js"></script>
 </head>
 <body>
-    <div class="wrap">
-        <div class="row">
-            <h1>📈 DCA 백테스트</h1>
-            <div>
-                <button id="themeToggle" class="btn-sm" title="테마 전환">🌓 다크모드</button>
-            </div>
-        </div>
-        <p class="muted">• Yahoo <code>/v8/finance/chart</code> JSON 사용 • 프록시: <code>/api/yahoo</code> • 저장은 localStorage</p>
-
-        <div class="tabs">
-            <button class="tab-btn active" data-tab="run">실행</button>
-            <button class="tab-btn" data-tab="saved">저장됨</button>
-        </div>
-
-        <!-- RUN TAB -->
-        <div id="tab-run" class="tab-panel active">
-            <div class="card grid g3">
-                <div>
-                    <label>심볼</label>
-                    <input id="symbol" value="AAPL" />
-                </div>
-                <div>
-                    <label>전략</label>
-                    <select id="strategy">
-                        <option value="dca" selected>일반 DCA</option>
-                        <option value="raoor">라오어 무한매수</option>
-                    </select>
-                </div>
-                <div>
-                    <label>투자 주기 (DCA)</label>
-                    <select id="freq">
-                        <option>Daily</option>
-                        <option selected>Monthly</option>
-                        <option>Weekly</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label>회차당 투자금</label>
-                    <input id="amount" type="number" min="1" step="1" value="100000" />
-                </div>
-                <div>
-                    <label>조회 구간</label>
-                    <select id="range">
-                        <option value="1y">1년</option>
-                        <option value="5y">5년</option>
-                        <option value="10y">10년</option>
-                        <option value="max" selected>전체</option>
-                    </select>
-                </div>
-                <div>
-                    <label>시작일(선택)</label>
-                    <input id="from" type="date" />
-                </div>
-                <div>
-                    <label>종료일(선택)</label>
-                    <input id="to" type="date" />
-                </div>
-
-                <!-- 라오어 옵션 -->
-                <div>
-                    <label>라오어 버전</label>
-                    <select id="raoorVer">
-                        <option value="v1">v1 (기본)</option>
-                        <option value="v2">v2 (익절 5%/10% 분할매도)</option>
-                        <option value="v21">v2.1 (50% 소진 후 보수화)</option>
-                        <option value="v3">v3 (분할매도·재진입)</option>
-                    </select>
-                </div>
-                <div>
-                    <label>분할수(회)</label>
-                    <input id="raoorSplits" type="number" min="10" step="1" value="40" />
-                </div>
-                <div>
-                    <label>익절 트리거(%)</label>
-                    <input id="raoorTP" type="number" min="1" step="1" value="10" />
-                </div>
-
-                <div style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    <button id="run">백테스트 실행</button>
-                    <button id="save" class="btn-sm" disabled>현재 결과 저장</button>
-                    <input id="saveName" placeholder="저장 이름(선택)" class="btn-sm" style="min-width:200px;" />
-                    <span id="status" class="muted"></span>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3>결과 요약</h3>
-                <table>
-                    <tbody>
-                        <tr><td>구간</td><td id="rangeTxt">-</td></tr>
-                        <tr><td>투자 회차</td><td id="investCount">-</td></tr>
-                        <tr><td>총 투자금</td><td id="invested">-</td></tr>
-                        <tr><td>최종 평가액</td><td id="finalValue">-</td></tr>
-                        <tr><td>누적 수익률</td><td id="totalReturn">-</td></tr>
-                        <tr><td>CAGR(연복리)</td><td id="cagr">-</td></tr>
-                        <tr><td>최대 낙폭(MDD)</td><td id="mdd">-</td></tr>
-                    </tbody>
-                </table>
-                <p class="muted">※ DCA: Daily=모든 거래일, Weekly=각 ISO 주 첫 거래일, Monthly=각 월 첫 거래일 매수</p>
-            </div>
-
-            <div class="card">
-                <h3>가격 차트 (Adj Close)</h3>
-                <div id="priceChart" style="height: 340px;"></div>
-            </div>
-
-            <div class="card">
-                <h3>에쿼티 커브 (누적 평가액)</h3>
-                <div id="equityChart" style="height: 260px;"></div>
-                <div class="legend"><span class="dot dot-yellow"></span>누적 투자금(노란색 선)</div>
-            </div>
-        </div>
-
-        <!-- SAVED TAB -->
-        <div id="tab-saved" class="tab-panel">
-            <div class="card">
-                <h3>저장된 결과</h3>
-                <div id="savedEmpty" class="muted">아직 저장된 결과가 없습니다.</div>
-                <div id="savedList" class="saved-list"></div>
-            </div>
-        </div>
+  <div class="wrap">
+    <div class="row">
+      <h1>📈 DCA 백테스터 (GitHub Pages)</h1>
+      <div>
+        <button id="themeToggle" class="btn-sm" title="테마 전환">🌓 다크모드</button>
+      </div>
     </div>
+    <p class="muted">• 데이터 소스: <b>Stooq CSV</b> (키/서버/액션 불필요) • 업로드 CSV로도 실행 가능 • 저장은 LocalStorage</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="run">실행</button>
+      <button class="tab-btn" data-tab="saved">저장됨</button>
+      <button class="tab-btn" data-tab="compare">전략비교</button>
+    </div>
+
+    <!-- RUN TAB -->
+    <div id="tab-run" class="tab-panel active">
+      <div class="card grid g3">
+        <div>
+          <label>데이터 소스</label>
+          <select id="dataSource">
+            <option value="stooq" selected>Stooq CSV (정적, 무키)</option>
+            <option value="upload">CSV 업로드</option>
+          </select>
+        </div>
+        <div>
+          <label>CSV 업로드(선택)</label>
+          <input id="csvFile" type="file" accept=".csv" />
+          <div class="muted">업로드 선택 시 해당 CSV 우선 사용 (심볼 무시 가능)</div>
+        </div>
+        <div>
+          <label>심볼</label>
+          <input id="symbol" value="AAPL" />
+          <div class="muted">미국 주식은 자동으로 .us 접미사 적용 (예: AAPL → aapl.us)</div>
+        </div>
+
+        <div>
+          <label>전략</label>
+          <select id="strategy">
+            <option value="dca" selected>일반 DCA</option>
+            <option value="raoor">라오어 무한매수</option>
+          </select>
+        </div>
+        <div>
+          <label>투자 주기 (DCA)</label>
+          <select id="freq">
+            <option>Daily</option>
+            <option selected>Monthly</option>
+            <option>Weekly</option>
+          </select>
+        </div>
+        <div>
+          <label>회차당 투자금</label>
+          <input id="amount" type="number" min="1" step="1" value="100000" />
+        </div>
+
+        <div>
+          <label>조회 구간</label>
+          <select id="range">
+            <option value="1y">1년</option>
+            <option value="5y">5년</option>
+            <option value="10y">10년</option>
+            <option value="max" selected>전체</option>
+          </select>
+        </div>
+        <div>
+          <label>시작일(선택)</label>
+          <input id="from" type="date" />
+        </div>
+        <div>
+          <label>종료일(선택)</label>
+          <input id="to" type="date" />
+        </div>
+
+        <div>
+          <label>라오어 버전</label>
+          <select id="raoorVer">
+            <option value="v1">v1</option>
+            <option value="v2">v2</option>
+            <option value="v21">v2.1</option>
+            <option value="v3">v3</option>
+          </select>
+        </div>
+        <div>
+          <label>분할수(회)</label>
+          <input id="raoorSplits" type="number" min="10" step="1" value="40" />
+        </div>
+        <div>
+          <label>익절 트리거(%)</label>
+          <input id="raoorTP" type="number" min="1" step="1" value="10" />
+        </div>
+
+        <div style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button id="run">백테스트 실행</button>
+          <button id="save" class="btn-sm" disabled>현재 결과 저장</button>
+          <input id="saveName" placeholder="저장 이름(선택)" class="btn-sm" style="min-width:200px;" />
+          <span id="status" class="muted"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>결과 요약</h3>
+        <table>
+          <tbody>
+            <tr><td>구간</td><td id="rangeTxt">-</td></tr>
+            <tr><td>투자 회차</td><td id="investCount">-</td></tr>
+            <tr><td>총 투자금</td><td id="invested">-</td></tr>
+            <tr><td>최종 평가액</td><td id="finalValue">-</td></tr>
+            <tr><td>누적 수익률</td><td id="totalReturn">-</td></tr>
+            <tr><td>CAGR(연복리)</td><td id="cagr">-</td></tr>
+            <tr><td>최대 낙폭(MDD)</td><td id="mdd">-</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>가격 차트 (Close)</h3>
+        <div id="priceChart" style="height: 340px;"></div>
+      </div>
+
+      <div class="card">
+        <h3>에쿼티 커브 (누적 평가액)</h3>
+        <div id="equityChart" style="height: 260px;"></div>
+        <div class="legend"><span class="dot dot-yellow"></span>누적 투자금(노란색 선)</div>
+      </div>
+    </div>
+
+    <!-- SAVED TAB -->
+    <div id="tab-saved" class="tab-panel">
+      <div class="card">
+        <h3>저장된 결과</h3>
+        <div id="savedEmpty" class="muted">아직 저장된 결과가 없습니다.</div>
+        <div id="savedList" class="saved-list"></div>
+      </div>
+    </div>
+
+    <!-- COMPARE TAB -->
+    <div id="tab-compare" class="tab-panel">
+      <div class="card">
+        <h3>전략 비교 (A vs B)</h3>
+        <div class="compare-grid">
+          <div class="compare-col">
+            <h4>A 전략</h4>
+            <div class="grid g3">
+              <div><label>심볼</label><input id="A_symbol" value="AAPL"/></div>
+              <div><label>전략</label><select id="A_strategy"><option value="dca" selected>DCA</option><option value="raoor">라오어</option></select></div>
+              <div><label>주기(DCA)</label><select id="A_freq"><option>Daily</option><option selected>Monthly</option><option>Weekly</option></select></div>
+              <div><label>회차당 투자금</label><input id="A_amount" type="number" value="100000"/></div>
+              <div><label>조회 구간</label><select id="A_range"><option value="1y">1년</option><option value="5y">5년</option><option value="10y">10년</option><option value="max" selected>전체</option></select></div>
+              <div><label>시작일</label><input id="A_from" type="date"/></div>
+              <div><label>종료일</label><input id="A_to" type="date"/></div>
+              <div><label>라오어 버전</label><select id="A_raoorVer"><option value="v1">v1</option><option value="v2">v2</option><option value="v21">v2.1</option><option value="v3">v3</option></select></div>
+              <div><label>분할수</label><input id="A_raoorSplits" type="number" value="40"/></div>
+              <div><label>익절(%)</label><input id="A_raoorTP" type="number" value="10"/></div>
+            </div>
+          </div>
+          <div class="compare-col">
+            <h4>B 전략</h4>
+            <div class="grid g3">
+              <div><label>심볼</label><input id="B_symbol" value="MSFT"/></div>
+              <div><label>전략</label><select id="B_strategy"><option value="dca" selected>DCA</option><option value="raoor">라오어</option></select></div>
+              <div><label>주기(DCA)</label><select id="B_freq"><option>Daily</option><option selected>Monthly</option><option>Weekly</option></select></div>
+              <div><label>회차당 투자금</label><input id="B_amount" type="number" value="100000"/></div>
+              <div><label>조회 구간</label><select id="B_range"><option value="1y">1년</option><option value="5y">5년</option><option value="10y">10년</option><option value="max" selected>전체</option></select></div>
+              <div><label>시작일</label><input id="B_from" type="date"/></div>
+              <div><label>종료일</label><input id="B_to" type="date"/></div>
+              <div><label>라오어 버전</label><select id="B_raoorVer"><option value="v1">v1</option><option value="v2">v2</option><option value="v21">v2.1</option><option value="v3">v3</option></select></div>
+              <div><label>분할수</label><input id="B_raoorSplits" type="number" value="40"/></div>
+              <div><label>익절(%)</label><input id="B_raoorTP" type="number" value="10"/></div>
+            </div>
+          </div>
+        </div>
+        <div class="compare-actions">
+          <button id="compareRun">비교 실행</button>
+          <span id="compareStatus" class="muted"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>지표 비교</h3>
+        <div class="compare-table-wrap">
+          <table class="compare-table">
+            <thead><tr><th></th><th>A</th><th>B</th><th>Δ(B-A)</th></tr></thead>
+            <tbody>
+              <tr><td>기간</td><td id="cmp_period_A">-</td><td id="cmp_period_B">-</td><td>-</td></tr>
+              <tr><td>투자 회차</td><td id="cmp_count_A">-</td><td id="cmp_count_B">-</td><td id="cmp_count_D">-</td></tr>
+              <tr><td>총 투자금</td><td id="cmp_invest_A">-</td><td id="cmp_invest_B">-</td><td id="cmp_invest_D">-</td></tr>
+              <tr><td>최종 평가액</td><td id="cmp_final_A">-</td><td id="cmp_final_B">-</td><td id="cmp_final_D">-</td></tr>
+              <tr><td>누적 수익률</td><td id="cmp_ret_A">-</td><td id="cmp_ret_B">-</td><td id="cmp_ret_D">-</td></tr>
+              <tr><td>CAGR</td><td id="cmp_cagr_A">-</td><td id="cmp_cagr_B">-</td><td id="cmp_cagr_D">-</td></tr>
+              <tr><td>MDD</td><td id="cmp_mdd_A">-</td><td id="cmp_mdd_B">-</td><td id="cmp_mdd_D">-</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>에쿼티 비교 차트</h3>
+        <div id="compareChart" style="height: 300px;"></div>
+        <p class="legend">
+          <span class="dot" style="background:#3b82f6;"></span>A 에쿼티 &nbsp;&nbsp;
+          <span class="dot" style="background:#10b981;"></span>B 에쿼티
+        </p>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
